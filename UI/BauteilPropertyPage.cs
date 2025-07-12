@@ -7,6 +7,7 @@ using Rhino;
 using Rhino.DocObjects;
 using Rhino.UI;
 using BauteilPlugin.Models;
+using BauteilPlugin.Utils;
 using BauteilMaterial = BauteilPlugin.Models.Material;
 
 namespace BauteilPlugin.UI
@@ -21,7 +22,7 @@ namespace BauteilPlugin.UI
         private Splitter _mainSplitter;
         private bool _isUpdating = false; // Prevent recursive updates
 
-        // UI Controls - now editable
+        // UI Controls
         private TextBox _nameTextBox;
         private TextBox _descriptionTextBox;
         private Label _totalThicknessLabel;
@@ -37,6 +38,14 @@ namespace BauteilPlugin.UI
         private Button _editKanteButton;
         private Button _removeButton;
 
+        // Search panels
+        private MaterialSearchPanel _materialSearchPanel;
+        private EdgeSearchPanel _edgeSearchPanel;
+        private Panel _materialSearchContainer;
+        private Panel _edgeSearchContainer;
+        private Button _searchMaterialButton;
+        private Button _searchEdgeButton;
+
         public override string EnglishPageTitle => "Bauteil";
         public override string LocalPageTitle => "Bauteil";
 
@@ -45,6 +54,7 @@ namespace BauteilPlugin.UI
         public BauteilPropertyPage()
         {
             InitializeComponent();
+            MaterialSearch.Initialize(); // Initialize material search database
         }
 
         private void InitializeComponent()
@@ -187,54 +197,56 @@ namespace BauteilPlugin.UI
             _schichtenGridView.GridLines = GridLines.Both;
             _schichtenGridView.AllowColumnReordering = true;
             _schichtenGridView.Border = BorderType.Line;
+            // GridView is editable by default when cells are configured properly
             
-            // Add editable columns with proportional widths
+            // Add editable columns with resizable widths
             _schichtenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Layer",
                 DataCell = new TextBoxCell("SchichtName"),
-                Width = 60
+                Width = 80,
+                Resizable = true,
+                Editable = true
             });
             
-            var materialDropDown = new ComboBoxCell("MaterialType")
-            {
-                DataStore = Enum.GetValues(typeof(MaterialType)).Cast<MaterialType>()
-                    .Select(m => new { Key = m, Value = GetMaterialTypeDisplayName(m) }).ToList()
-            };
             _schichtenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Material",
-                DataCell = materialDropDown,
-                Width = 100
+                DataCell = new TextBoxCell("MaterialName"),
+                Width = 140,
+                Resizable = true,
+                Editable = true
             });
             
             _schichtenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Thickness",
                 DataCell = new TextBoxCell("DickeText"),
-                Width = 50
+                Width = 70,
+                Resizable = true,
+                Editable = true
             });
 
             _schichtenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Density",
                 DataCell = new TextBoxCell("DichteText"),
-                Width = 50
+                Width = 70,
+                Resizable = true,
+                Editable = true
             });
 
-            var grainDropDown = new ComboBoxCell("Laufrichtung")
-            {
-                DataStore = Enum.GetValues(typeof(GrainDirection)).Cast<GrainDirection>()
-                    .Select(g => new { Key = g, Value = g.ToString() }).ToList()
-            };
             _schichtenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Grain",
-                DataCell = grainDropDown,
-                Width = 40
+                DataCell = new TextBoxCell("LaufrichtungText"),
+                Width = 60,
+                Resizable = true,
+                Editable = true
             });
             
             _schichtenGridView.CellEdited += SchichtenGridView_CellEdited;
+            // Removed CellDoubleClick handler to prevent conflicts
             
             // Create button panel with very small buttons
             var buttonPanel = new StackLayout();
@@ -249,13 +261,40 @@ namespace BauteilPlugin.UI
             _editSchichtButton = new Button { Text = "Edit", Size = new Size(30, 16) };
             _editSchichtButton.Click += EditSchichtButton_Click;
             
+            // Add material search button
+            _searchMaterialButton = new Button { Text = "🔍 Material", Size = new Size(65, 16) };
+            _searchMaterialButton.Click += SearchMaterialButton_Click;
+            
             buttonPanel.Items.Add(_addSchichtButton);
             buttonPanel.Items.Add(_removeSchichtButton);
             buttonPanel.Items.Add(_editSchichtButton);
+            buttonPanel.Items.Add(_searchMaterialButton);
             
             // Setup table layout: table fills most space, buttons at bottom
             tableLayout.Rows.Add(new TableRow(_schichtenGridView) { ScaleHeight = true });
             tableLayout.Rows.Add(new TableRow(buttonPanel) { ScaleHeight = false });
+            
+            // Create material search panel container (initially hidden)
+            _materialSearchPanel = new MaterialSearchPanel();
+            _materialSearchPanel.MaterialApplied += OnMaterialApplied;
+            _materialSearchPanel.SearchCancelled += OnMaterialSearchCancelled;
+            
+            // Wrap in GroupBox for better visual integration
+            var materialSearchGroupBox = new GroupBox
+            {
+                Text = "Material Search",
+                Content = _materialSearchPanel,
+                Padding = new Padding(5)
+            };
+            
+            _materialSearchContainer = new Panel
+            {
+                Content = materialSearchGroupBox,
+                Visible = false,
+                Padding = new Padding(0, 5, 0, 0) // Small top margin for visual separation
+            };
+            
+            tableLayout.Rows.Add(new TableRow(new TableCell(_materialSearchContainer, true)) { ScaleHeight = false });
             
             groupBox.Content = tableLayout;
             panel.Content = groupBox;
@@ -283,46 +322,46 @@ namespace BauteilPlugin.UI
             _kantenGridView.GridLines = GridLines.Both;
             _kantenGridView.AllowColumnReordering = true;
             _kantenGridView.Border = BorderType.Line;
+            // GridView is editable by default when cells are configured properly
             
-            var edgeTypeDropDown = new ComboBoxCell("KantenTyp")
-            {
-                DataStore = Enum.GetValues(typeof(EdgeType)).Cast<EdgeType>()
-                    .Select(e => new { Key = e, Value = GetEdgeTypeDisplayName(e) }).ToList()
-            };
             _kantenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Edge",
-                DataCell = edgeTypeDropDown,
-                Width = 80
+                DataCell = new TextBoxCell("KantenTypText"),
+                Width = 100,
+                Resizable = true,
+                Editable = true
             });
             
-            var processingDropDown = new ComboBoxCell("BearbeitungsTyp")
-            {
-                DataStore = Enum.GetValues(typeof(EdgeProcessingType)).Cast<EdgeProcessingType>()
-                    .Select(p => new { Key = p, Value = GetProcessingTypeDisplayName(p) }).ToList()
-            };
             _kantenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Processing",
-                DataCell = processingDropDown,
-                Width = 100
+                DataCell = new TextBoxCell("BearbeitungsTypText"),
+                Width = 120,
+                Resizable = true,
+                Editable = true
             });
 
             _kantenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Thickness",
                 DataCell = new TextBoxCell("DickeText"),
-                Width = 50
+                Width = 70,
+                Resizable = true,
+                Editable = true
             });
 
             _kantenGridView.Columns.Add(new GridColumn
             {
                 HeaderText = "Visible",
                 DataCell = new CheckBoxCell("IsVisible"),
-                Width = 40
+                Width = 60,
+                Resizable = true,
+                Editable = true
             });
             
             _kantenGridView.CellEdited += KantenGridView_CellEdited;
+            // Removed CellDoubleClick handler to prevent conflicts
             
             // Create button panel with very small buttons
             var buttonPanel = new StackLayout();
@@ -337,13 +376,40 @@ namespace BauteilPlugin.UI
             _editKanteButton = new Button { Text = "Edit", Size = new Size(30, 16) };
             _editKanteButton.Click += EditKanteButton_Click;
             
+            // Add edge search button
+            _searchEdgeButton = new Button { Text = "🔍 Edge", Size = new Size(55, 16) };
+            _searchEdgeButton.Click += SearchEdgeButton_Click;
+            
             buttonPanel.Items.Add(_addKanteButton);
             buttonPanel.Items.Add(_removeKanteButton);
             buttonPanel.Items.Add(_editKanteButton);
+            buttonPanel.Items.Add(_searchEdgeButton);
             
             // Setup table layout: table fills most space, buttons at bottom
             tableLayout.Rows.Add(new TableRow(_kantenGridView) { ScaleHeight = true });
             tableLayout.Rows.Add(new TableRow(buttonPanel) { ScaleHeight = false });
+            
+            // Create edge search panel container (initially hidden)
+            _edgeSearchPanel = new EdgeSearchPanel();
+            _edgeSearchPanel.EdgeApplied += OnEdgeApplied;
+            _edgeSearchPanel.SearchCancelled += OnEdgeSearchCancelled;
+            
+            // Wrap in GroupBox for better visual integration
+            var edgeSearchGroupBox = new GroupBox
+            {
+                Text = "Edge Search",
+                Content = _edgeSearchPanel,
+                Padding = new Padding(5)
+            };
+            
+            _edgeSearchContainer = new Panel
+            {
+                Content = edgeSearchGroupBox,
+                Visible = false,
+                Padding = new Padding(0, 5, 0, 0) // Small top margin for visual separation
+            };
+            
+            tableLayout.Rows.Add(new TableRow(new TableCell(_edgeSearchContainer, true)) { ScaleHeight = false });
             
             groupBox.Content = tableLayout;
             panel.Content = groupBox;
@@ -448,9 +514,11 @@ namespace BauteilPlugin.UI
                 {
                     SchichtName = s.SchichtName,
                     MaterialType = s.Material.Typ,
+                    MaterialName = s.Material.Name,
                     DickeText = s.Dicke.ToString("F1"),
                     DichteText = s.Dichte.ToString("F0"),
                     Laufrichtung = s.Laufrichtung,
+                    LaufrichtungText = GetGrainDirectionDisplayName(s.Laufrichtung),
                     OriginalSchicht = s
                 }).ToList();
                 
@@ -460,7 +528,9 @@ namespace BauteilPlugin.UI
                 var kantenData = _bauteil.Kantenbilder.Select(k => new KanteEditItem
                 {
                     KantenTyp = k.KantenTyp,
+                    KantenTypText = GetEdgeTypeDisplayName(k.KantenTyp),
                     BearbeitungsTyp = k.BearbeitungsTyp,
+                    BearbeitungsTypText = GetProcessingTypeDisplayName(k.BearbeitungsTyp),
                     DickeText = k.Dicke.ToString("F1"),
                     IsVisible = k.IsVisible,
                     OriginalKante = k
@@ -499,41 +569,63 @@ namespace BauteilPlugin.UI
             if (_bauteil == null || _isUpdating) return;
 
             var editedItem = e.Item as SchichtEditItem;
-            if (editedItem?.OriginalSchicht == null) return;
+            if (editedItem?.OriginalSchicht == null) 
+            {
+                RhinoApp.WriteLine("Error: No valid item selected for editing");
+                return;
+            }
 
             var schicht = editedItem.OriginalSchicht;
+            if (schicht?.Material == null)
+            {
+                RhinoApp.WriteLine("Error: Material is null");
+                return;
+            }
 
             try
             {
+                RhinoApp.WriteLine($"Editing column {e.Column} for layer {schicht.SchichtName}");
+                
                 switch (e.Column)
                 {
                     case 0: // Layer name
-                        schicht.SchichtName = editedItem.SchichtName;
+                        if (!string.IsNullOrEmpty(editedItem.SchichtName))
+                        {
+                            schicht.SchichtName = editedItem.SchichtName;
+                            RhinoApp.WriteLine($"Updated layer name to: {schicht.SchichtName}");
+                        }
                         break;
-                    case 1: // Material type
-                        schicht.Material.Typ = editedItem.MaterialType;
-                        schicht.Material.SetDefaultPropertiesForType(editedItem.MaterialType);
+                    case 1: // Material search
+                        HandleMaterialSearch(editedItem, schicht);
                         break;
                     case 2: // Thickness
-                        if (double.TryParse(editedItem.DickeText, out double dicke))
+                        if (double.TryParse(editedItem.DickeText, out double dicke) && dicke > 0)
+                        {
                             schicht.Dicke = dicke;
+                            RhinoApp.WriteLine($"Updated thickness to: {dicke}");
+                        }
                         break;
                     case 3: // Density
-                        if (double.TryParse(editedItem.DichteText, out double dichte))
+                        if (double.TryParse(editedItem.DichteText, out double dichte) && dichte > 0)
+                        {
                             schicht.Dichte = dichte;
+                            RhinoApp.WriteLine($"Updated density to: {dichte}");
+                        }
                         break;
                     case 4: // Grain direction
-                        schicht.Laufrichtung = editedItem.Laufrichtung;
+                        HandleGrainDirectionSearch(editedItem, schicht);
                         break;
                 }
 
                 SaveChanges();
                 UpdateCalculations();
                 BauteilDataManager.NotifyBauteilChanged(_bauteil);
+                RhinoApp.WriteLine("Material layer edit completed successfully");
             }
             catch (Exception ex)
             {
                 RhinoApp.WriteLine($"Error editing material layer: {ex.Message}");
+                RhinoApp.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -542,36 +634,47 @@ namespace BauteilPlugin.UI
             if (_bauteil == null || _isUpdating) return;
 
             var editedItem = e.Item as KanteEditItem;
-            if (editedItem?.OriginalKante == null) return;
+            if (editedItem?.OriginalKante == null) 
+            {
+                RhinoApp.WriteLine("Error: No valid edge item selected for editing");
+                return;
+            }
 
             var kante = editedItem.OriginalKante;
 
             try
             {
+                RhinoApp.WriteLine($"Editing edge column {e.Column}");
+                
                 switch (e.Column)
                 {
                     case 0: // Edge type
-                        kante.KantenTyp = editedItem.KantenTyp;
+                        HandleEdgeTypeSearch(editedItem, kante);
                         break;
                     case 1: // Processing type
-                        kante.BearbeitungsTyp = editedItem.BearbeitungsTyp;
-                        kante.SetDefaultPropertiesForProcessingType(editedItem.BearbeitungsTyp);
+                        HandleProcessingTypeSearch(editedItem, kante);
                         break;
                     case 2: // Thickness
-                        if (double.TryParse(editedItem.DickeText, out double dicke))
+                        if (double.TryParse(editedItem.DickeText, out double dicke) && dicke >= 0)
+                        {
                             kante.Dicke = dicke;
+                            RhinoApp.WriteLine($"Updated edge thickness to: {dicke}");
+                        }
                         break;
                     case 3: // Visible
                         kante.IsVisible = editedItem.IsVisible;
+                        RhinoApp.WriteLine($"Updated edge visibility to: {editedItem.IsVisible}");
                         break;
                 }
 
                 SaveChanges();
                 BauteilDataManager.NotifyBauteilChanged(_bauteil);
+                RhinoApp.WriteLine("Edge edit completed successfully");
             }
             catch (Exception ex)
             {
                 RhinoApp.WriteLine($"Error editing edge: {ex.Message}");
+                RhinoApp.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -674,6 +777,189 @@ namespace BauteilPlugin.UI
         {
             // TODO: Open detailed edge editor dialog
             MessageBox.Show("Detailed edge editor will be implemented in future version.", "Edit Edge", MessageBoxType.Information);
+        }
+
+        private void SearchMaterialButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Check if a material layer is selected
+                if (_schichtenGridView.SelectedItem is SchichtEditItem selectedSchicht)
+                {
+                    // Toggle the material search panel visibility
+                    _materialSearchContainer.Visible = !_materialSearchContainer.Visible;
+                    
+                    if (_materialSearchContainer.Visible)
+                    {
+                        // Set initial search to current material name
+                        _materialSearchPanel.SetInitialSearch(selectedSchicht.MaterialName);
+                        _materialSearchPanel.FocusSearchBox();
+                        _searchMaterialButton.Text = "🔍 Hide";
+                        
+                        // Hide edge search panel if visible
+                        _edgeSearchContainer.Visible = false;
+                        _searchEdgeButton.Text = "🔍 Edge";
+                        
+                        RhinoApp.WriteLine("Material search panel opened. Type to search for materials.");
+                    }
+                    else
+                    {
+                        _searchMaterialButton.Text = "🔍 Material";
+                        RhinoApp.WriteLine("Material search panel closed.");
+                    }
+                }
+                else
+                {
+                    RhinoApp.WriteLine("Please select a material layer first to search for materials.");
+                }
+            }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Error in material search: {ex.Message}");
+            }
+        }
+
+        private void SearchEdgeButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Check if an edge is selected
+                if (_kantenGridView.SelectedItem is KanteEditItem selectedKante)
+                {
+                    // Toggle the edge search panel visibility
+                    _edgeSearchContainer.Visible = !_edgeSearchContainer.Visible;
+                    
+                    if (_edgeSearchContainer.Visible)
+                    {
+                        // Set initial search type based on current edge
+                        _edgeSearchPanel.SetSearchType(true); // Start with edge types
+                        _edgeSearchPanel.FocusSearchBox();
+                        _searchEdgeButton.Text = "🔍 Hide";
+                        
+                        // Hide material search panel if visible
+                        _materialSearchContainer.Visible = false;
+                        _searchMaterialButton.Text = "🔍 Material";
+                        
+                        RhinoApp.WriteLine("Edge search panel opened. Select edge type or processing type and start typing to search.");
+                    }
+                    else
+                    {
+                        _searchEdgeButton.Text = "🔍 Edge";
+                        RhinoApp.WriteLine("Edge search panel closed.");
+                    }
+                }
+                else
+                {
+                    RhinoApp.WriteLine("Please select an edge first to search for edge options.");
+                }
+            }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Error in edge search: {ex.Message}");
+            }
+        }
+
+        // Event handlers for embedded search panels
+        private void OnMaterialApplied(object sender, MaterialSearchItem selectedMaterial)
+        {
+            try
+            {
+                if (_schichtenGridView.SelectedItem is SchichtEditItem selectedSchicht)
+                {
+                    // Apply the selected material
+                    var newMaterial = MaterialSearch.CreateMaterialFromSearchItem(selectedMaterial);
+                    var schicht = selectedSchicht.OriginalSchicht;
+                    
+                    // Update material properties
+                    schicht.Material.Name = newMaterial.Name;
+                    schicht.Material.Typ = newMaterial.Typ;
+                    schicht.Material.StandardDensity = newMaterial.StandardDensity;
+                    schicht.Material.StandardThickness = newMaterial.StandardThickness;
+                    schicht.Dichte = newMaterial.StandardDensity;
+                    
+                    // Update display
+                    selectedSchicht.MaterialName = newMaterial.Name;
+                    selectedSchicht.MaterialType = newMaterial.Typ;
+                    selectedSchicht.DichteText = newMaterial.StandardDensity.ToString("F0");
+                    
+                    SaveChanges();
+                    UpdateDisplay();
+                    BauteilDataManager.NotifyBauteilChanged(_bauteil);
+                    
+                    // Hide the search panel
+                    _materialSearchContainer.Visible = false;
+                    _searchMaterialButton.Text = "🔍 Material";
+                    
+                    RhinoApp.WriteLine($"Material '{selectedMaterial.Name}' applied to layer '{schicht.SchichtName}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Error applying material: {ex.Message}");
+            }
+        }
+
+        private void OnMaterialSearchCancelled(object sender, EventArgs e)
+        {
+            // Hide the search panel
+            _materialSearchContainer.Visible = false;
+            _searchMaterialButton.Text = "🔍 Material";
+            RhinoApp.WriteLine("Material search cancelled.");
+        }
+
+        private void OnEdgeApplied(object sender, EdgeSearchResultEventArgs e)
+        {
+            try
+            {
+                if (_kantenGridView.SelectedItem is KanteEditItem selectedKante)
+                {
+                    var selectedOption = e.SelectedOption;
+                    var isEdgeType = e.IsEdgeType;
+                    var kante = selectedKante.OriginalKante;
+                    
+                    if (isEdgeType)
+                    {
+                        // Update edge type
+                        kante.KantenTyp = (EdgeType)selectedOption.EnumValue;
+                        selectedKante.KantenTyp = (EdgeType)selectedOption.EnumValue;
+                        selectedKante.KantenTypText = GetEdgeTypeDisplayName((EdgeType)selectedOption.EnumValue);
+                        
+                        RhinoApp.WriteLine($"Edge type updated to: {selectedOption.Name}");
+                    }
+                    else
+                    {
+                        // Update processing type
+                        kante.BearbeitungsTyp = (EdgeProcessingType)selectedOption.EnumValue;
+                        selectedKante.BearbeitungsTyp = (EdgeProcessingType)selectedOption.EnumValue;
+                        selectedKante.BearbeitungsTypText = GetProcessingTypeDisplayName((EdgeProcessingType)selectedOption.EnumValue);
+                        
+                        // Set default properties
+                        kante.SetDefaultPropertiesForProcessingType((EdgeProcessingType)selectedOption.EnumValue);
+                        
+                        RhinoApp.WriteLine($"Processing type updated to: {selectedOption.Name}");
+                    }
+                    
+                    SaveChanges();
+                    UpdateDisplay();
+                    BauteilDataManager.NotifyBauteilChanged(_bauteil);
+                    
+                    // Hide the search panel
+                    _edgeSearchContainer.Visible = false;
+                    _searchEdgeButton.Text = "🔍 Edge";
+                }
+            }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Error applying edge option: {ex.Message}");
+            }
+        }
+
+        private void OnEdgeSearchCancelled(object sender, EventArgs e)
+        {
+            // Hide the search panel
+            _edgeSearchContainer.Visible = false;
+            _searchEdgeButton.Text = "🔍 Edge";
+            RhinoApp.WriteLine("Edge search cancelled.");
         }
 
         private void UpdateCalculations()
@@ -812,21 +1098,214 @@ namespace BauteilPlugin.UI
             }
         }
 
+        private string GetGrainDirectionDisplayName(GrainDirection grainDirection)
+        {
+            switch (grainDirection)
+            {
+                case GrainDirection.X: return "X";
+                case GrainDirection.Y: return "Y";
+                default: return grainDirection.ToString();
+            }
+        }
+
+        private void HandleMaterialSearch(SchichtEditItem editedItem, MaterialSchicht schicht)
+        {
+            if (string.IsNullOrWhiteSpace(editedItem.MaterialName))
+            {
+                RhinoApp.WriteLine("Material name is empty");
+                return;
+            }
+
+            // Search for material in database
+            var searchResult = MaterialSearch.GetMaterialByName(editedItem.MaterialName);
+            if (searchResult != null)
+            {
+                // Found exact match - update material properties
+                var newMaterial = MaterialSearch.CreateMaterialFromSearchItem(searchResult);
+                schicht.Material.Name = newMaterial.Name;
+                schicht.Material.Typ = newMaterial.Typ;
+                schicht.Material.StandardDensity = newMaterial.StandardDensity;
+                schicht.Material.StandardThickness = newMaterial.StandardThickness;
+                schicht.Dichte = newMaterial.StandardDensity;
+                
+                RhinoApp.WriteLine($"Material updated to: {newMaterial.Name} ({newMaterial.Typ})");
+                
+                // Update display item
+                editedItem.MaterialType = newMaterial.Typ;
+                editedItem.DichteText = newMaterial.StandardDensity.ToString("F0");
+            }
+            else
+            {
+                // Search for similar materials
+                var suggestions = MaterialSearch.SearchMaterials(editedItem.MaterialName, 5);
+                if (suggestions.Count > 0)
+                {
+                    RhinoApp.WriteLine($"Material '{editedItem.MaterialName}' not found. Suggestions:");
+                    foreach (var suggestion in suggestions)
+                    {
+                        RhinoApp.WriteLine($"  - {suggestion.Name} ({suggestion.Type})");
+                    }
+                }
+                else
+                {
+                    // Keep as custom material name
+                    schicht.Material.Name = editedItem.MaterialName;
+                    RhinoApp.WriteLine($"Custom material name set: {editedItem.MaterialName}");
+                }
+            }
+        }
+
+        private void HandleGrainDirectionSearch(SchichtEditItem editedItem, MaterialSchicht schicht)
+        {
+            if (string.IsNullOrWhiteSpace(editedItem.LaufrichtungText))
+            {
+                return;
+            }
+
+            var text = editedItem.LaufrichtungText.ToUpper().Trim();
+            
+            if (text == "X")
+            {
+                schicht.Laufrichtung = GrainDirection.X;
+                editedItem.Laufrichtung = GrainDirection.X;
+                RhinoApp.WriteLine("Grain direction set to X");
+            }
+            else if (text == "Y")
+            {
+                schicht.Laufrichtung = GrainDirection.Y;
+                editedItem.Laufrichtung = GrainDirection.Y;
+                RhinoApp.WriteLine("Grain direction set to Y");
+            }
+            else
+            {
+                RhinoApp.WriteLine($"Invalid grain direction: {text}. Use 'X' or 'Y'");
+            }
+        }
+
+        private void HandleEdgeTypeSearch(KanteEditItem editedItem, Kantenbild kante)
+        {
+            if (string.IsNullOrWhiteSpace(editedItem.KantenTypText))
+            {
+                return;
+            }
+
+            var text = editedItem.KantenTypText.ToLower().Trim();
+            EdgeType edgeType;
+            
+            if (text.Contains("top") || text.Contains("oben"))
+            {
+                edgeType = EdgeType.Top;
+            }
+            else if (text.Contains("bottom") || text.Contains("unten"))
+            {
+                edgeType = EdgeType.Bottom;
+            }
+            else if (text.Contains("front") || text.Contains("vorne"))
+            {
+                edgeType = EdgeType.Front;
+            }
+            else if (text.Contains("back") || text.Contains("hinten"))
+            {
+                edgeType = EdgeType.Back;
+            }
+            else if (text.Contains("left") || text.Contains("links"))
+            {
+                edgeType = EdgeType.Left;
+            }
+            else if (text.Contains("right") || text.Contains("rechts"))
+            {
+                edgeType = EdgeType.Right;
+            }
+            else
+            {
+                RhinoApp.WriteLine($"Invalid edge type: {text}. Use: Top, Bottom, Front, Back, Left, Right");
+                return;
+            }
+
+            kante.KantenTyp = edgeType;
+            editedItem.KantenTyp = edgeType;
+            RhinoApp.WriteLine($"Edge type set to: {edgeType}");
+        }
+
+        private void HandleProcessingTypeSearch(KanteEditItem editedItem, Kantenbild kante)
+        {
+            if (string.IsNullOrWhiteSpace(editedItem.BearbeitungsTypText))
+            {
+                return;
+            }
+
+            var text = editedItem.BearbeitungsTypText.ToLower().Trim();
+            EdgeProcessingType processingType;
+            
+            if (text.Contains("raw") || text.Contains("roh"))
+            {
+                processingType = EdgeProcessingType.Raw;
+            }
+            else if (text.Contains("band") || text.Contains("bekantet"))
+            {
+                processingType = EdgeProcessingType.EdgeBanded;
+            }
+            else if (text.Contains("solid") || text.Contains("massiv"))
+            {
+                processingType = EdgeProcessingType.Solid;
+            }
+            else if (text.Contains("round") || text.Contains("gerundet"))
+            {
+                processingType = EdgeProcessingType.Rounded;
+            }
+            else if (text.Contains("chamfer") || text.Contains("gefast"))
+            {
+                processingType = EdgeProcessingType.Chamfered;
+            }
+            else if (text.Contains("groove") || text.Contains("nut"))
+            {
+                processingType = EdgeProcessingType.Grooved;
+            }
+            else if (text.Contains("profile") || text.Contains("profil"))
+            {
+                processingType = EdgeProcessingType.Profiled;
+            }
+            else if (text.Contains("laminate") || text.Contains("laminiert"))
+            {
+                processingType = EdgeProcessingType.Laminated;
+            }
+            else
+            {
+                RhinoApp.WriteLine($"Invalid processing type: {text}. Use: Raw, EdgeBanded, Solid, Rounded, Chamfered, Grooved, Profiled, Laminated");
+                return;
+            }
+
+            kante.BearbeitungsTyp = processingType;
+            editedItem.BearbeitungsTyp = processingType;
+            
+            // Set default properties
+            if (kante.SetDefaultPropertiesForProcessingType != null)
+            {
+                kante.SetDefaultPropertiesForProcessingType(processingType);
+            }
+            
+            RhinoApp.WriteLine($"Processing type set to: {processingType}");
+        }
+
         // Helper classes for editable grid items
         public class SchichtEditItem
         {
             public string SchichtName { get; set; }
             public MaterialType MaterialType { get; set; }
+            public string MaterialName { get; set; }
             public string DickeText { get; set; }
             public string DichteText { get; set; }
             public GrainDirection Laufrichtung { get; set; }
+            public string LaufrichtungText { get; set; }
             public MaterialSchicht OriginalSchicht { get; set; }
         }
 
         public class KanteEditItem
         {
             public EdgeType KantenTyp { get; set; }
+            public string KantenTypText { get; set; }
             public EdgeProcessingType BearbeitungsTyp { get; set; }
+            public string BearbeitungsTypText { get; set; }
             public string DickeText { get; set; }
             public bool IsVisible { get; set; }
             public Kantenbild OriginalKante { get; set; }

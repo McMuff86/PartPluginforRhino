@@ -30,3 +30,5 @@ C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.c
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilP.8074BDD8.Up2Date
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.rhp
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.pdb
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.sourcelink.json
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\Materials.json

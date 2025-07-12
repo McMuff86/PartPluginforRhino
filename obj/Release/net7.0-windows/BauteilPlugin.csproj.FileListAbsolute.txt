@@ -27,3 +27,5 @@ C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net7.0-windows\refint
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net7.0-windows\BauteilPlugin.pdb
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net7.0-windows\BauteilPlugin.genruntimeconfig.cache
 C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net7.0-windows\ref\BauteilPlugin.rhp
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net7.0-windows\BauteilPlugin.sourcelink.json
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net7.0-windows\Materials.json

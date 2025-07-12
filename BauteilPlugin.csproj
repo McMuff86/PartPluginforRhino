@@ -62,6 +62,9 @@
 
   <ItemGroup>
     <None Include="readme.md" />
+    <None Include="Materials.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
