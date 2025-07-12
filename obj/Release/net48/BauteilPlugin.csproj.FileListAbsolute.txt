@@ -1,0 +1,32 @@
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilPlugin.csproj.AssemblyReference.cache
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilPlugin.GeneratedMSBuildEditorConfig.editorconfig
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilPlugin.csproj.CoreCompileInputs.cache
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\BauteilPlugin.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\BauteilPlugin.pdb
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\EntityFramework.SqlServer.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\EntityFramework.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\Newtonsoft.Json.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\System.ComponentModel.Annotations.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.EF6.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.Linq.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilP.8074BDD8.Up2Date
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilPlugin.dll
+H:\Andere Computer\Mein ArbeitsPC\work\PartPluginforRhino\obj\Release\net48\BauteilPlugin.pdb
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\BauteilPlugin.rhp
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\BauteilPlugin.pdb
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\EntityFramework.SqlServer.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\EntityFramework.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\Eto.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\Newtonsoft.Json.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\System.ComponentModel.Annotations.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.EF6.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\System.Data.SQLite.Linq.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\bin\Release\net48\System.Drawing.Common.dll
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.csproj.AssemblyReference.cache
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.csproj.CoreCompileInputs.cache
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilP.8074BDD8.Up2Date
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.rhp
+C:\Users\GTBMX\source\repos\PartPluginforRhino\obj\Release\net48\BauteilPlugin.pdb
