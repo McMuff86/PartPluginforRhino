@@ -49,6 +49,17 @@ namespace BauteilPlugin.UI
         public Guid PanelId => _panelId;
 
         /// <summary>
+        /// Gets the instance of the BauteilEditorPanel
+        /// </summary>
+        /// <returns>The BauteilEditorPanel instance or null if not registered</returns>
+        public static BauteilEditorPanel GetPanel()
+        {
+            var panelId = new Guid("E8D4C2A5-7B9F-4E3D-8C1A-9F6E5B2D4C7A");
+            var panel = Panels.GetPanel<BauteilEditorPanel>(RhinoDoc.ActiveDoc);
+            return panel;
+        }
+
+        /// <summary>
         /// Called when the panel is about to be closed
         /// </summary>
         /// <param name="documentSerialNumber">Document serial number</param>

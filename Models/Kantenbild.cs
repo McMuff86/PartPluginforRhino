@@ -32,6 +32,11 @@ namespace BauteilPlugin.Models
         public string EdgeMaterial { get; set; } = string.Empty;
 
         /// <summary>
+        /// Material information for this edge
+        /// </summary>
+        public Material Material { get; set; }
+
+        /// <summary>
         /// Thickness of edge banding in mm (if applicable)
         /// </summary>
         public double EdgeBandThickness { get; set; } = 0.4;

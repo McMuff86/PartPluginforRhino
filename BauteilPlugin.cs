@@ -8,6 +8,9 @@ using BauteilPlugin.Models;
 using BauteilPlugin.UI;
 using Rhino.DocObjects;
 using Rhino.Geometry; // Add missing using directive
+using BauteilPlugin.Commands;
+using Rhino.DocObjects.Tables;
+using Rhino.DocObjects.Custom;
 
 namespace BauteilPlugin
 {

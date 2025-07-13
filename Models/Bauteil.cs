@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Rhino.DocObjects.Custom;
+using Rhino.DocObjects;
 using Rhino.Geometry;
+using System.IO;
+using System.Text;
 
 namespace BauteilPlugin.Models
 {
@@ -46,12 +49,12 @@ namespace BauteilPlugin.Models
         /// <summary>
         /// The length of the component, corresponding to its local X-axis.
         /// </summary>
-        public double Length { get; set; }
+        public double Length { get; set; } = 1800;
 
         /// <summary>
         /// The width of the component, corresponding to its local Y-axis.
         /// </summary>
-        public double Width { get; set; }
+        public double Width { get; set; } = 600;
 
         /// <summary>
         /// Creation date of the component
@@ -312,12 +315,82 @@ namespace BauteilPlugin.Models
             return $"{Name} ({Schichten.Count} layers, {GetTotalThickness():F1}mm thick)";
         }
 
+        /// <summary>
+        /// Exports the component data to a CSV file
+        /// </summary>
+        /// <param name="filePath">Path where the CSV file should be saved</param>
+        /// <returns>True if export was successful</returns>
+        public bool ExportToCSV(string filePath)
+        {
+            try
+            {
+                using (var sw = new StreamWriter(filePath, false, Encoding.UTF8))
+                {
+                    // Write header
+                    sw.WriteLine("Property,Value");
+                    
+                    // Write basic properties
+                    sw.WriteLine($"ID,{Id}");
+                    sw.WriteLine($"Name,{Name}");
+                    sw.WriteLine($"Description,{BauteilDescription}");
+                    sw.WriteLine($"Length,{Length}");
+                    sw.WriteLine($"Width,{Width}");
+                    sw.WriteLine($"Total Thickness,{GetTotalThickness()}");
+                    sw.WriteLine($"Weight per m²,{GetWeightPerSquareMeter():F2}");
+                    sw.WriteLine($"Created Date,{CreatedDate}");
+                    sw.WriteLine($"Modified Date,{ModifiedDate}");
+                    
+                    // Add empty line as separator
+                    sw.WriteLine();
+                    
+                    // Write material layers
+                    sw.WriteLine("Layer Index,Layer Name,Material,Thickness,Density,Grain Direction");
+                    for (int i = 0; i < Schichten.Count; i++)
+                    {
+                        var schicht = Schichten[i];
+                        sw.WriteLine($"{i},{schicht.SchichtName},{schicht.Material.Name},{schicht.Dicke:F1},{schicht.Dichte:F0},{schicht.Laufrichtung}");
+                    }
+                    
+                    // Add empty line as separator
+                    sw.WriteLine();
+                    
+                    // Write edge configurations
+                    sw.WriteLine("Edge Type,Processing Type,Thickness,Material,Is Visible");
+                    foreach (var kante in Kantenbilder)
+                    {
+                        sw.WriteLine($"{kante.KantenTyp},{kante.BearbeitungsTyp},{kante.Dicke:F1},{kante.Material?.Name ?? "None"},{kante.IsVisible}");
+                    }
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Rhino.RhinoApp.WriteLine($"Error exporting to CSV: {ex.Message}");
+                return false;
+            }
+        }
+
         #region UserData Implementation
 
         /// <summary>
         /// Gets a brief description of this user data for Rhino
         /// </summary>
         public override string Description => "Professional Bauteil Component Data";
+
+        /// <summary>
+        /// Helper method to retrieve a Bauteil from a RhinoObject
+        /// </summary>
+        /// <param name="rhinoObject">The RhinoObject to check for Bauteil data</param>
+        /// <returns>Bauteil if found, null otherwise</returns>
+        public static Bauteil TryGetBauteil(RhinoObject rhinoObject)
+        {
+            if (rhinoObject == null)
+                return null;
+                
+            var bauteil = rhinoObject.Geometry.UserData.Find(typeof(Bauteil)) as Bauteil;
+            return bauteil;
+        }
 
         /// <summary>
         /// Writes the content of this user data to a binary archive
