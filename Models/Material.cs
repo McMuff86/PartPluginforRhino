@@ -233,7 +233,7 @@ namespace BauteilPlugin.Models
             return new Material
             {
                 Id = Guid.NewGuid(),
-                Name = Name + " (Copy)",
+                Name = Name,
                 Typ = Typ,
                 Manufacturer = Manufacturer,
                 ArticleNumber = ArticleNumber,
@@ -256,7 +256,55 @@ namespace BauteilPlugin.Models
         /// <returns>String representation of the material</returns>
         public override string ToString()
         {
-            return $"{Name} ({Typ}, {StandardThickness:F1}mm, {StandardDensity:F0}kg/m³)";
+            return $"{Name} ({Typ})";
+        }
+
+        /// <summary>
+        /// Writes the material data to a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to write to.</param>
+        public void Write(Rhino.FileIO.BinaryArchiveWriter archive)
+        {
+            archive.Write3dmChunkVersion(1, 0);
+            archive.WriteGuid(Id);
+            archive.WriteString(Name);
+            archive.WriteInt((int)Typ);
+            archive.WriteString(Manufacturer);
+            archive.WriteString(ArticleNumber);
+            archive.WriteString(Description);
+            archive.WriteDouble(StandardThickness);
+            archive.WriteDouble(StandardDensity);
+            archive.WriteDouble(CostPerUnit);
+            archive.WriteString(CostUnit);
+            archive.WriteColor(Color);
+            archive.WriteString(SurfaceTexture);
+            archive.WriteBool(IsActive);
+            archive.WriteInt64(CreatedDate.Ticks); // Use Ticks for DateTime
+            archive.WriteString(Notes);
+        }
+
+        /// <summary>
+        /// Reads the material data from a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to read from.</param>
+        public void Read(Rhino.FileIO.BinaryArchiveReader archive)
+        {
+            archive.Read3dmChunkVersion(out _, out _);
+            Id = archive.ReadGuid();
+            Name = archive.ReadString();
+            Typ = (MaterialType)archive.ReadInt();
+            Manufacturer = archive.ReadString();
+            ArticleNumber = archive.ReadString();
+            Description = archive.ReadString();
+            StandardThickness = archive.ReadDouble();
+            StandardDensity = archive.ReadDouble();
+            CostPerUnit = archive.ReadDouble();
+            CostUnit = archive.ReadString();
+            Color = archive.ReadColor();
+            SurfaceTexture = archive.ReadString();
+            IsActive = archive.ReadBool();
+            CreatedDate = new DateTime(archive.ReadInt64()); // Use Ticks for DateTime
+            Notes = archive.ReadString();
         }
     }
 

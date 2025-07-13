@@ -38,6 +38,22 @@ namespace BauteilPlugin.Models
         public List<Kantenbild> Kantenbilder { get; set; } = new List<Kantenbild>();
 
         /// <summary>
+        /// Defines the local coordinate system (Plane) for the component.
+        /// The Z-axis represents the thickness direction.
+        /// </summary>
+        public Plane OrientationPlane { get; set; }
+
+        /// <summary>
+        /// The length of the component, corresponding to its local X-axis.
+        /// </summary>
+        public double Length { get; set; }
+
+        /// <summary>
+        /// The width of the component, corresponding to its local Y-axis.
+        /// </summary>
+        public double Width { get; set; }
+
+        /// <summary>
         /// Creation date of the component
         /// </summary>
         public DateTime CreatedDate { get; set; } = DateTime.Now;
@@ -52,6 +68,8 @@ namespace BauteilPlugin.Models
         /// </summary>
         public Bauteil()
         {
+            // Initialize with a default plane
+            OrientationPlane = Plane.WorldXY;
             // Initialize with default edge configurations
             InitializeDefaultEdges();
         }
@@ -266,20 +284,23 @@ namespace BauteilPlugin.Models
         /// <summary>
         /// Create a deep copy of the component
         /// </summary>
-        /// <returns>Deep copy of the component</returns>
+        /// <returns>A deep copy of the component</returns>
         public Bauteil Clone()
         {
-            var clone = new Bauteil(Name + " (Copy)")
+            var aClone = new Bauteil
             {
-                Id = Guid.NewGuid(),
-                BauteilDescription = BauteilDescription,
-                Schichten = Schichten.Select(s => s.Clone()).ToList(),
-                Kantenbilder = Kantenbilder.Select(k => k.Clone()).ToList(),
-                CreatedDate = DateTime.Now,
-                ModifiedDate = DateTime.Now
+                Name = this.Name,
+                BauteilDescription = this.BauteilDescription,
+                Schichten = this.Schichten.Select(s => s.Clone()).ToList(),
+                Kantenbilder = this.Kantenbilder.Select(k => k.Clone()).ToList(),
+                CreatedDate = this.CreatedDate,
+                ModifiedDate = this.ModifiedDate,
+                Id = this.Id,
+                OrientationPlane = this.OrientationPlane,
+                Length = this.Length,
+                Width = this.Width
             };
-
-            return clone;
+            return aClone;
         }
 
         /// <summary>
@@ -303,137 +324,118 @@ namespace BauteilPlugin.Models
         /// </summary>
         protected override void OnDuplicate(UserData source)
         {
-            if (source is Bauteil sourceBauteil)
+            if (source is Bauteil src)
             {
-                Id = sourceBauteil.Id;
-                Name = sourceBauteil.Name;
-                BauteilDescription = sourceBauteil.BauteilDescription;
-                Schichten = sourceBauteil.Schichten.Select(s => s.Clone()).ToList();
-                Kantenbilder = sourceBauteil.Kantenbilder.Select(k => k.Clone()).ToList();
-                CreatedDate = sourceBauteil.CreatedDate;
+                // Clone all data to ensure the new object has a separate copy
+                Name = src.Name;
+                BauteilDescription = src.BauteilDescription;
+                Schichten = src.Schichten.Select(s => s.Clone()).ToList();
+                Kantenbilder = src.Kantenbilder.Select(k => k.Clone()).ToList();
+                // Don't copy creation date, but set modified date
+                CreatedDate = DateTime.Now;
                 ModifiedDate = DateTime.Now;
+                // Give it a new Guid
+                Id = Guid.NewGuid();
+                OrientationPlane = src.OrientationPlane;
+                Length = src.Length;
+                Width = src.Width;
             }
         }
 
         /// <summary>
-        /// Writes user data to a binary archive
+        /// Writes the component data to a binary archive for saving
         /// </summary>
+        /// <param name="archive">The archive to write to</param>
+        /// <returns>True on success</returns>
         protected override bool Write(Rhino.FileIO.BinaryArchiveWriter archive)
         {
-            try
+            archive.Write3dmChunkVersion(1, 2);
+            archive.WriteGuid(Id);
+            archive.WriteString(Name);
+            archive.WriteString(BauteilDescription);
+            archive.WriteInt64(CreatedDate.Ticks);
+            archive.WriteInt64(ModifiedDate.Ticks);
+
+            archive.WriteInt(Schichten.Count);
+            foreach (var schicht in Schichten)
             {
-                // Write version number
-                archive.Write3dmChunkVersion(1, 0);
-                
-                // Write basic properties
-                archive.WriteGuid(Id);
-                archive.WriteString(Name);
-                archive.WriteString(BauteilDescription);
-                archive.WriteString(CreatedDate.ToString());
-                archive.WriteString(ModifiedDate.ToString());
-                
-                // Write material layers count and data
-                archive.WriteInt(Schichten.Count);
-                foreach (var schicht in Schichten)
-                {
-                    archive.WriteString(schicht.SchichtName);
-                    archive.WriteString(schicht.Material?.Name ?? "Unknown");
-                    archive.WriteDouble(schicht.Dicke);
-                    archive.WriteDouble(schicht.Dichte);
-                    archive.WriteInt((int)schicht.Laufrichtung);
-                    archive.WriteDouble(schicht.Lackmenge);
-                }
-                
-                // Write edge configurations count and data
-                archive.WriteInt(Kantenbilder.Count);
-                foreach (var kante in Kantenbilder)
-                {
-                    archive.WriteInt((int)kante.KantenTyp);
-                    archive.WriteInt((int)kante.BearbeitungsTyp);
-                    archive.WriteBool(kante.IsVisible);
-                }
-                
-                return true;
+                schicht.Write(archive);
             }
-            catch
+
+            archive.WriteInt(Kantenbilder.Count);
+            foreach (var kante in Kantenbilder)
             {
-                return false;
+                kante.Write(archive);
             }
+
+            archive.WritePlane(OrientationPlane);
+
+            // Version 1.2 additions
+            archive.WriteDouble(Length);
+            archive.WriteDouble(Width);
+
+            return true;
         }
 
         /// <summary>
-        /// Reads user data from a binary archive
+        /// Reads the component data from a binary archive
         /// </summary>
+        /// <param name="archive">The archive to read from</param>
+        /// <returns>True on success</returns>
         protected override bool Read(Rhino.FileIO.BinaryArchiveReader archive)
         {
-            try
+            int major = 0;
+            int minor = 0;
+            archive.Read3dmChunkVersion(out major, out minor);
+
+            if (major == 1)
             {
-                // Read version
-                int major, minor;
-                archive.Read3dmChunkVersion(out major, out minor);
-                
-                if (major == 1)
+                Id = archive.ReadGuid();
+                Name = archive.ReadString();
+                BauteilDescription = archive.ReadString();
+                CreatedDate = new DateTime(archive.ReadInt64());
+                ModifiedDate = new DateTime(archive.ReadInt64());
+
+                int schichtenCount = archive.ReadInt();
+                Schichten.Clear();
+                for (int i = 0; i < schichtenCount; i++)
                 {
-                    // Read basic properties
-                    Id = archive.ReadGuid();
-                    Name = archive.ReadString();
-                    BauteilDescription = archive.ReadString();
-                    DateTime.TryParse(archive.ReadString(), out var createdDate);
-                    CreatedDate = createdDate;
-                    DateTime.TryParse(archive.ReadString(), out var modifiedDate);
-                    ModifiedDate = modifiedDate;
-                    
-                    // Read material layers
-                    int schichtCount = archive.ReadInt();
-                    Schichten.Clear();
-                    for (int i = 0; i < schichtCount; i++)
-                    {
-                        var schichtName = archive.ReadString();
-                        var materialName = archive.ReadString();
-                        var dicke = archive.ReadDouble();
-                        var dichte = archive.ReadDouble();
-                        var laufrichtung = (GrainDirection)archive.ReadInt();
-                        var lackmenge = archive.ReadDouble();
-                        
-                        var schicht = new MaterialSchicht
-                        {
-                            SchichtName = schichtName,
-                            Material = new Material(materialName),
-                            Dicke = dicke,
-                            Dichte = dichte,
-                            Laufrichtung = laufrichtung,
-                            Lackmenge = lackmenge
-                        };
-                        Schichten.Add(schicht);
-                    }
-                    
-                    // Read edge configurations
-                    int kantenCount = archive.ReadInt();
-                    Kantenbilder.Clear();
-                    for (int i = 0; i < kantenCount; i++)
-                    {
-                        var kantenTyp = (EdgeType)archive.ReadInt();
-                        var bearbeitungsTyp = (EdgeProcessingType)archive.ReadInt();
-                        var isVisible = archive.ReadBool();
-                        
-                        var kante = new Kantenbild
-                        {
-                            KantenTyp = kantenTyp,
-                            BearbeitungsTyp = bearbeitungsTyp,
-                            IsVisible = isVisible
-                        };
-                        Kantenbilder.Add(kante);
-                    }
-                    
-                    return true;
+                    var schicht = new MaterialSchicht();
+                    schicht.Read(archive);
+                    Schichten.Add(schicht);
                 }
-                
-                return false;
+
+                int kantenbilderCount = archive.ReadInt();
+                Kantenbilder.Clear();
+                for (int i = 0; i < kantenbilderCount; i++)
+                {
+                    var kante = new Kantenbild();
+                    kante.Read(archive);
+                    Kantenbilder.Add(kante);
+                }
+
+                if (minor >= 1)
+                {
+                    OrientationPlane = archive.ReadPlane();
+                }
+                else
+                {
+                    OrientationPlane = Plane.WorldXY;
+                }
+
+                if (minor >= 2)
+                {
+                    Length = archive.ReadDouble();
+                    Width = archive.ReadDouble();
+                }
+
+                // Handle potential missing default edges in older versions
+                if (Kantenbilder.Count == 0)
+                {
+                    InitializeDefaultEdges();
+                }
             }
-            catch
-            {
-                return false;
-            }
+            return true;
         }
 
         #endregion

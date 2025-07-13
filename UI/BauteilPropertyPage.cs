@@ -6,6 +6,9 @@ using Eto.Drawing;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.UI;
+using Rhino.Input;
+using Rhino.Input.Custom;
+using Rhino.Geometry;
 using BauteilPlugin.Models;
 using BauteilPlugin.Utils;
 using BauteilMaterial = BauteilPlugin.Models.Material;
@@ -28,6 +31,8 @@ namespace BauteilPlugin.UI
         private Label _totalThicknessLabel;
         private Label _totalWeightLabel;
         private Label _paintConsumptionLabel;
+        private TextBox _lengthTextBox;
+        private TextBox _widthTextBox;
         private GridView _schichtenGridView;
         private GridView _kantenGridView;
         private Button _addSchichtButton;
@@ -95,7 +100,11 @@ namespace BauteilPlugin.UI
             _nameTextBox.TextChanged += NameTextBox_TextChanged;
             _descriptionTextBox = new TextBox();
             _descriptionTextBox.TextChanged += DescriptionTextBox_TextChanged;
-            
+            _lengthTextBox = new TextBox();
+            _lengthTextBox.TextChanged += LengthTextBox_TextChanged;
+            _widthTextBox = new TextBox();
+            _widthTextBox.TextChanged += WidthTextBox_TextChanged;
+
             infoLayout.Rows.Add(new TableRow(
                 new Label { Text = "Name:", Width = 80 },
                 new TableCell(_nameTextBox, true)
@@ -104,7 +113,15 @@ namespace BauteilPlugin.UI
                 new Label { Text = "Description:", Width = 80 },
                 new TableCell(_descriptionTextBox, true)
             ));
-            
+            infoLayout.Rows.Add(new TableRow(
+                new Label { Text = "Length (X):", Width = 80 },
+                new TableCell(_lengthTextBox, true)
+            ));
+            infoLayout.Rows.Add(new TableRow(
+                new Label { Text = "Width (Y):", Width = 80 },
+                new TableCell(_widthTextBox, true)
+            ));
+
             infoGroupBox.Content = infoLayout;
 
             // Calculations GroupBox
@@ -425,19 +442,46 @@ namespace BauteilPlugin.UI
 
         public override void UpdatePage(ObjectPropertiesPageEventArgs e)
         {
-            if (e.ObjectCount != 1) return;
-            
-            _rhinoObject = e.Objects.FirstOrDefault();
-            if (_rhinoObject == null) return;
-            
-            _bauteil = _rhinoObject.UserData.Find(typeof(Bauteil)) as Bauteil;
-            // If no bauteil data exists, create a default one but don't attach it yet
-            if (_bauteil == null)
+            if (e.ObjectCount == 1)
             {
+                var rhinoObject = e.Objects[0];
+                var instanceObject = rhinoObject as InstanceObject;
+
+                if (instanceObject != null)
+                {
+                    _rhinoObject = instanceObject;
+                    _bauteil = _rhinoObject.UserData.Find(typeof(Bauteil)) as Bauteil;
+
+                    if (_bauteil != null)
+                    {
+                        // Sync the Bauteil's orientation plane with the actual instance transform.
+                        // This is critical for the Gumball's "Align to Object" to work correctly,
+                        // as it reads the instance's frame.
+                        var instancePlane = Plane.WorldXY;
+                        instancePlane.Transform(instanceObject.InstanceXform);
+                        _bauteil.OrientationPlane = instancePlane;
+                    }
+                }
+                else
+                {
+                    _rhinoObject = rhinoObject;
+                    _bauteil = _rhinoObject.UserData.Find(typeof(Bauteil)) as Bauteil;
+                }
+
+                if (_bauteil == null)
+                {
+                    _bauteil = CreateDefaultBauteil();
+                    // Don't attach yet, wait for user to confirm.
+                }
+            }
+            else
+            {
+                _rhinoObject = null;
                 _bauteil = CreateDefaultBauteil();
             }
-            
+
             UpdateDisplay();
+            base.UpdatePage(e);
         }
 
         private Bauteil CreateDefaultBauteil()
@@ -503,6 +547,8 @@ namespace BauteilPlugin.UI
                 // Update basic information
                 _nameTextBox.Text = _bauteil.Name ?? "";
                 _descriptionTextBox.Text = _bauteil.BauteilDescription ?? "";
+                _lengthTextBox.Text = _bauteil.Length.ToString("F2");
+                _widthTextBox.Text = _bauteil.Width.ToString("F2");
                 
                 // Update calculations
                 _totalThicknessLabel.Text = $"Total Thickness: {_bauteil.GetTotalThickness():F1} mm";
@@ -550,9 +596,36 @@ namespace BauteilPlugin.UI
             if (_bauteil == null || _isUpdating) return;
             
             _bauteil.Name = _nameTextBox.Text;
+
+            // Also update the Rhino Object's name attribute
+            if (_rhinoObject != null && _rhinoObject.IsValid)
+            {
+                var attributes = _rhinoObject.Attributes.Duplicate();
+                attributes.Name = _bauteil.Name;
+                RhinoDoc.ActiveDoc.Objects.ModifyAttributes(_rhinoObject.Id, attributes, true);
+            }
+
             SaveChanges();
             // Notify editor panel about changes
             BauteilDataManager.NotifyBauteilChanged(_bauteil);
+        }
+
+        private void LengthTextBox_TextChanged(object sender, EventArgs e)
+        {
+            if (_bauteil == null || _isUpdating) return;
+            if (double.TryParse(_lengthTextBox.Text, out double length))
+            {
+                _bauteil.Length = length;
+            }
+        }
+
+        private void WidthTextBox_TextChanged(object sender, EventArgs e)
+        {
+            if (_bauteil == null || _isUpdating) return;
+            if (double.TryParse(_widthTextBox.Text, out double width))
+            {
+                _bauteil.Width = width;
+            }
         }
 
         private void DescriptionTextBox_TextChanged(object sender, EventArgs e)
@@ -1002,28 +1075,303 @@ namespace BauteilPlugin.UI
         private void ApplyButton_Click(object sender, EventArgs e)
         {
             if (_rhinoObject == null || _bauteil == null) return;
-            
+
             try
             {
-                // Force save the current bauteil to object
-                var existingBauteil = _rhinoObject.UserData.Find(typeof(Bauteil)) as Bauteil;
-                if (existingBauteil == null)
+                if (_rhinoObject is InstanceObject instanceObject)
                 {
-                    _rhinoObject.UserData.Add(_bauteil);
-                    RhinoApp.WriteLine("Bauteil data applied to object.");
+                    UpdateBauteilBlock(instanceObject, _bauteil);
                 }
                 else
                 {
-                    RhinoApp.WriteLine("Bauteil data updated.");
+                    ConvertObjectToBlockWithBauteil(_rhinoObject, _bauteil);
                 }
-                
-                SaveChanges();
-                BauteilDataManager.NotifyBauteilChanged(_bauteil);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error applying bauteil data: {ex.Message}", "Error", MessageBoxType.Error);
             }
+        }
+
+        private void UpdateBauteilBlock(InstanceObject instanceObject, Bauteil bauteilFromUi)
+        {
+            var doc = RhinoDoc.ActiveDoc;
+            if (doc == null || instanceObject == null || bauteilFromUi == null) return;
+
+            var oldDefinition = instanceObject.InstanceDefinition;
+            if (oldDefinition == null || oldDefinition.IsDeleted)
+            {
+                RhinoApp.WriteLine("The selected block instance has an invalid definition.");
+                return;
+            }
+
+            // Create new canonical geometry
+            var newBrep = Brep.CreateFromBox(new Box(Plane.WorldXY,
+                new Interval(0, bauteilFromUi.Length),
+                new Interval(0, bauteilFromUi.Width),
+                new Interval(0, bauteilFromUi.GetTotalThickness())));
+
+            if (newBrep == null)
+            {
+                RhinoApp.WriteLine("Failed to create new Bauteil geometry.");
+                return;
+            }
+
+            // Create a new unique block definition name
+            var baseBlockName = $"{bauteilFromUi.Name}_BT";
+            var newBlockName = baseBlockName;
+            int counter = 1;
+            while (doc.InstanceDefinitions.Find(newBlockName) != null)
+            {
+                newBlockName = $"{baseBlockName}_{counter++}";
+            }
+
+            // Add the new block definition
+            int newBlockDefIndex = doc.InstanceDefinitions.Add(newBlockName, "Bauteil geometry", Point3d.Origin, new[] { newBrep });
+
+            if (newBlockDefIndex < 0)
+            {
+                RhinoApp.WriteLine("Failed to create new block definition.");
+                return;
+            }
+
+            // Add new instance with the transform from the old one
+            var newInstanceId = doc.Objects.AddInstanceObject(newBlockDefIndex, instanceObject.InstanceXform);
+            if (newInstanceId == Guid.Empty)
+            {
+                RhinoApp.WriteLine("Failed to create new block instance.");
+                return;
+            }
+            
+            var newInstanceObject = doc.Objects.FindId(newInstanceId) as InstanceObject;
+            if (newInstanceObject == null) return;
+            
+            // Copy attributes and add user data
+            newInstanceObject.Attributes = instanceObject.Attributes.Duplicate();
+            newInstanceObject.Attributes.Name = bauteilFromUi.Name;
+            newInstanceObject.UserData.Add(bauteilFromUi.Clone());
+            newInstanceObject.CommitChanges();
+
+            // Delete the old object
+            Guid oldInstanceId = instanceObject.Id;
+            doc.Objects.Delete(oldInstanceId, true);
+
+            // If the old block definition is no longer used, delete it
+            var users = doc.Objects.FindByObjectType(ObjectType.InstanceReference)
+                .Where(rhObj => (rhObj as InstanceObject)?.InstanceDefinition.Id == oldDefinition.Id);
+
+            if (!users.Any())
+            {
+                doc.InstanceDefinitions.Delete(oldDefinition.Index, true, true);
+            }
+
+            doc.Objects.Select(newInstanceId, true, true, true);
+            doc.Views.Redraw();
+        }
+
+        private void ConvertObjectToBlockWithBauteil(RhinoObject rhinoObject, Bauteil bauteil)
+        {
+            var doc = RhinoDoc.ActiveDoc;
+
+            Brep brep = null;
+            var geometry = rhinoObject.Geometry;
+
+            if (geometry is Brep brepGeo)
+            {
+                brep = brepGeo;
+            }
+            else if (geometry is Extrusion extrusion)
+            {
+                brep = extrusion.ToBrep();
+                RhinoApp.WriteLine("Extrusion object was converted to a Polysurface (Brep).");
+            }
+
+            if (brep == null)
+            {
+                RhinoApp.WriteLine("The selected object is not a valid Brep and could not be converted.");
+                return;
+            }
+
+            // --- Get the orientation plane from user input (3-Point Method) ---
+            RhinoApp.WriteLine("Define the component's orientation using 3 points (Origin, X-Axis, Y-Axis).");
+
+            var gpOrigin = new GetPoint();
+            gpOrigin.SetCommandPrompt("Select Bauteil origin point");
+            gpOrigin.Get();
+            if (gpOrigin.CommandResult() != Rhino.Commands.Result.Success) return;
+            var originPoint = gpOrigin.Point();
+
+            var gpX = new GetPoint();
+            gpX.SetCommandPrompt("Select point on Bauteil's X-axis");
+            gpX.SetBasePoint(originPoint, true);
+            gpX.DrawLineFromPoint(originPoint, true);
+            gpX.Get();
+            if (gpX.CommandResult() != Rhino.Commands.Result.Success) return;
+            var xAxisPoint = gpX.Point();
+
+            var gpY = new GetPoint();
+            gpY.SetCommandPrompt("Select point on Bauteil's Y-axis");
+            gpY.SetBasePoint(originPoint, true);
+            gpY.DrawLineFromPoint(originPoint, true);
+            gpY.Get();
+            if (gpY.CommandResult() != Rhino.Commands.Result.Success) return;
+            var yAxisPoint = gpY.Point();
+
+            var orientationPlane = new Plane(originPoint, xAxisPoint, yAxisPoint);
+
+            // --- Dimension Sync Logic ---
+            var objectBbox = brep.GetBoundingBox(orientationPlane);
+            var objectLength = objectBbox.Max.X - objectBbox.Min.X;
+            var objectWidth = objectBbox.Max.Y - objectBbox.Min.Y;
+
+            var userDialog = new Dialog<DialogResult>();
+            userDialog.Title = "Dimension Synchronization";
+            userDialog.Padding = new Padding(10);
+            
+            var layout = new DynamicLayout();
+            layout.Spacing = new Size(5, 5);
+            layout.Add(new Label { Text = "How should dimensions be handled?" });
+
+            var fromObjectButton = new Button { Text = $"Update Bauteil from Object ({objectLength:F1} x {objectWidth:F1} mm)" };
+            fromObjectButton.Click += (s, ev) => userDialog.Close(DialogResult.Yes);
+            
+            var fromUiButton = new Button { Text = $"Scale Object to Bauteil ({_bauteil.Length:F1} x {_bauteil.Width:F1} mm)"};
+            fromUiButton.Click += (s, ev) => userDialog.Close(DialogResult.No);
+            
+            var cancelButton = new Button { Text = "Cancel" };
+            cancelButton.Click += (s, ev) => userDialog.Close(DialogResult.Cancel);
+
+            layout.Add(fromObjectButton);
+            layout.Add(fromUiButton);
+            layout.Add(cancelButton);
+            userDialog.Content = layout;
+            
+            var dialogResult = userDialog.ShowModal(Application.Instance.MainForm);
+
+            if (dialogResult == DialogResult.Yes) // From Object to UI
+            {
+                _bauteil.Length = objectLength;
+                _bauteil.Width = objectWidth;
+                _lengthTextBox.Text = objectLength.ToString("F2");
+                _widthTextBox.Text = objectWidth.ToString("F2");
+                RhinoApp.WriteLine("Bauteil dimensions updated from object geometry.");
+            }
+            else if (dialogResult == DialogResult.No) // From UI to Object
+            {
+                var scaleX = _bauteil.Length / objectLength;
+                var scaleY = _bauteil.Width / objectWidth;
+                if (Math.Abs(scaleX - 1.0) > 0.001 || Math.Abs(scaleY - 1.0) > 0.001)
+                {
+                    var scaleTransform = Transform.Scale(orientationPlane, scaleX, scaleY, 1.0);
+                    brep.Transform(scaleTransform);
+                    RhinoApp.WriteLine($"Object scaled in X/Y to {_bauteil.Length:F2} x {_bauteil.Width:F2} mm.");
+                }
+            }
+            else // Cancel
+            {
+                return;
+            }
+
+
+            // Get edge for thickness measurement
+            RhinoApp.WriteLine("Please use Ctrl+Shift to select a single edge.");
+            var goEdgeZ = new GetObject();
+            goEdgeZ.SetCommandPrompt("Select an edge that represents the component's THICKNESS");
+            goEdgeZ.GeometryFilter = ObjectType.Curve;
+            goEdgeZ.SubObjectSelect = true;
+            goEdgeZ.DeselectAllBeforePostSelect = false;
+            goEdgeZ.EnablePreSelect(false, true);
+            goEdgeZ.EnableHighlight(true); // Enable highlighting
+            goEdgeZ.Get();
+            if (goEdgeZ.CommandResult() != Rhino.Commands.Result.Success)
+            {
+                return;
+            }
+            var edgeRefZ = goEdgeZ.Object(0);
+            var thicknessEdge = edgeRefZ.Edge();
+            if (thicknessEdge == null)
+            {
+                RhinoApp.WriteLine("Selection was not a valid thickness edge.");
+                return;
+            }
+
+            // Z-Axis is the normal of the calculated plane
+            var zAxis = orientationPlane.ZAxis;
+
+            bauteil.OrientationPlane = orientationPlane;
+            RhinoApp.WriteLine("WARNING: The new Orientation Plane will not be saved with the document due to a known issue. This will be fixed in a future version.");
+
+            // --- Scale object to match Bauteil thickness ---
+            double targetThickness = bauteil.GetTotalThickness();
+            if (targetThickness > 0)
+            {
+                var thicknessVector = thicknessEdge.PointAtEnd - thicknessEdge.PointAtStart;
+                double currentThickness = Math.Abs(thicknessVector * zAxis);
+
+                if (currentThickness > 0.001 && Math.Abs(targetThickness - currentThickness) > 0.001)
+                {
+                    double scaleFactorZ = targetThickness / currentThickness;
+                    var scalingTransform = Transform.Scale(orientationPlane, 1.0, 1.0, scaleFactorZ);
+
+                    // Important: Duplicate the brep first, then transform the duplicate
+                    var scaledBrep = brep.DuplicateBrep();
+                    if (scaledBrep.Transform(scalingTransform))
+                    {
+                        brep = scaledBrep; // Replace original brep with scaled version
+                        RhinoApp.WriteLine($"Object scaled in thickness from {currentThickness:F2} to {targetThickness:F2} mm.");
+                    }
+                    else
+                    {
+                        RhinoApp.WriteLine("Failed to apply scaling transform to the object.");
+                    }
+                }
+            }
+
+            // --- Create block definition and instance ---
+            var baseBlockName = $"{bauteil.Name}_BT";
+            var blockName = baseBlockName;
+            int counter = 1;
+            while (doc.InstanceDefinitions.Find(blockName) != null)
+            {
+                blockName = $"{baseBlockName}_{counter}";
+                counter++;
+            }
+            
+            var toOrigin = Transform.PlaneToPlane(orientationPlane, Plane.WorldXY);
+            var geometryForBlock = brep.DuplicateBrep();
+            geometryForBlock.Transform(toOrigin);
+
+            var blockDefIndex = doc.InstanceDefinitions.Add(blockName, "Bauteil geometry", Point3d.Origin, new GeometryBase[] { geometryForBlock }, null);
+            if (blockDefIndex < 0)
+            {
+                RhinoApp.WriteLine("Failed to create block definition.");
+                return;
+            }
+
+            var instanceTransform = Transform.PlaneToPlane(Plane.WorldXY, orientationPlane);
+            var instanceId = doc.Objects.AddInstanceObject(blockDefIndex, instanceTransform);
+
+            if (instanceId == Guid.Empty)
+            {
+                RhinoApp.WriteLine("Failed to create block instance.");
+                return;
+            }
+
+            var instanceObject = doc.Objects.FindId(instanceId);
+            if (instanceObject != null)
+            {
+                var attributes = instanceObject.Attributes.Duplicate();
+                attributes.Name = bauteil.Name;
+                doc.Objects.ModifyAttributes(instanceObject.Id, attributes, true);
+
+                instanceObject.UserData.Add(bauteil.Clone());
+                instanceObject.CommitChanges();
+            }
+
+            doc.Objects.Delete(rhinoObject, true);
+            doc.Views.Redraw();
+            
+            RhinoApp.WriteLine($"Converted object to a block instance with Bauteil data.");
         }
 
         private void RemoveButton_Click(object sender, EventArgs e)

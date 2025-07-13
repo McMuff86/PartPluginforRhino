@@ -195,7 +195,7 @@ namespace BauteilPlugin.Models
             return new MaterialSchicht
             {
                 Id = Guid.NewGuid(),
-                SchichtName = SchichtName + " (Copy)",
+                SchichtName = SchichtName,
                 Material = Material?.Clone(),
                 Dicke = Dicke,
                 Laufrichtung = Laufrichtung,
@@ -216,6 +216,64 @@ namespace BauteilPlugin.Models
         public override string ToString()
         {
             return $"{SchichtName} - {Material?.Name} ({Dicke:F1}mm, {Dichte:F0}kg/m³)";
+        }
+
+        /// <summary>
+        /// Writes the material layer data to a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to write to.</param>
+        public void Write(Rhino.FileIO.BinaryArchiveWriter archive)
+        {
+            archive.Write3dmChunkVersion(1, 0);
+            archive.WriteGuid(Id);
+            archive.WriteString(SchichtName);
+            archive.WriteDouble(Dicke);
+            archive.WriteInt((int)Laufrichtung);
+            archive.WriteDouble(CustomAngle);
+            archive.WriteDouble(Dichte);
+            archive.WriteDouble(Lackmenge);
+            archive.WriteInt(Order);
+            archive.WriteBool(IsVisible);
+            archive.WriteColor(LayerColor);
+            archive.WriteString(Notes);
+
+            bool hasMaterial = Material != null;
+            archive.WriteBool(hasMaterial);
+            if (hasMaterial)
+            {
+                Material.Write(archive);
+            }
+        }
+
+        /// <summary>
+        /// Reads the material layer data from a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to read from.</param>
+        public void Read(Rhino.FileIO.BinaryArchiveReader archive)
+        {
+            archive.Read3dmChunkVersion(out _, out _);
+            Id = archive.ReadGuid();
+            SchichtName = archive.ReadString();
+            Dicke = archive.ReadDouble();
+            Laufrichtung = (GrainDirection)archive.ReadInt();
+            CustomAngle = archive.ReadDouble();
+            Dichte = archive.ReadDouble();
+            Lackmenge = archive.ReadDouble();
+            Order = archive.ReadInt();
+            IsVisible = archive.ReadBool();
+            LayerColor = archive.ReadColor();
+            Notes = archive.ReadString();
+
+            bool hasMaterial = archive.ReadBool();
+            if (hasMaterial)
+            {
+                Material = new Material();
+                Material.Read(archive);
+            }
+            else
+            {
+                Material = null;
+            }
         }
     }
 

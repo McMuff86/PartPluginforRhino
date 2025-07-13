@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BauteilPlugin.Utils;
 
 namespace BauteilPlugin.Models
 {
@@ -286,23 +287,24 @@ namespace BauteilPlugin.Models
         /// <returns>Deep copy of the edge configuration</returns>
         public Kantenbild Clone()
         {
-            return new Kantenbild
+            var aClone = new Kantenbild
             {
                 Id = Guid.NewGuid(),
-                KantenTyp = KantenTyp,
-                BearbeitungsTyp = BearbeitungsTyp,
-                EdgeMaterial = EdgeMaterial,
-                EdgeBandThickness = EdgeBandThickness,
-                EdgeBandWidth = EdgeBandWidth,
-                EdgeColor = EdgeColor,
-                IsVisible = IsVisible,
-                ProcessingPriority = ProcessingPriority,
-                MachiningOperations = new List<EdgeMachiningOperation>(MachiningOperations.Select(op => op.Clone())),
-                RoundingRadius = RoundingRadius,
-                ChamferSize = ChamferSize,
-                Notes = Notes,
-                CostFactor = CostFactor
+                KantenTyp = this.KantenTyp,
+                BearbeitungsTyp = this.BearbeitungsTyp,
+                EdgeMaterial = this.EdgeMaterial,
+                EdgeBandThickness = this.EdgeBandThickness,
+                EdgeBandWidth = this.EdgeBandWidth,
+                EdgeColor = this.EdgeColor,
+                IsVisible = this.IsVisible,
+                ProcessingPriority = this.ProcessingPriority,
+                MachiningOperations = this.MachiningOperations.Select(op => op.CloneWithoutCopySuffix()).ToList(),
+                RoundingRadius = this.RoundingRadius,
+                ChamferSize = this.ChamferSize,
+                Notes = this.Notes,
+                CostFactor = this.CostFactor
             };
+            return aClone;
         }
 
         /// <summary>
@@ -311,7 +313,66 @@ namespace BauteilPlugin.Models
         /// <returns>String representation of the edge configuration</returns>
         public override string ToString()
         {
-            return GetDisplayName();
+            return $"{GetDisplayName()} ({Dicke:F1}mm)";
+        }
+
+        /// <summary>
+        /// Writes the edge configuration data to a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to write to.</param>
+        public void Write(Rhino.FileIO.BinaryArchiveWriter archive)
+        {
+            archive.Write3dmChunkVersion(1, 0);
+            archive.WriteGuid(Id);
+            archive.WriteInt((int)KantenTyp);
+            archive.WriteInt((int)BearbeitungsTyp);
+            archive.WriteString(EdgeMaterial);
+            archive.WriteDouble(EdgeBandThickness);
+            archive.WriteDouble(EdgeBandWidth);
+            archive.WriteColor(EdgeColor);
+            archive.WriteBool(IsVisible);
+            archive.WriteInt(ProcessingPriority);
+            archive.WriteDouble(RoundingRadius);
+            archive.WriteDouble(ChamferSize);
+            archive.WriteString(Notes);
+            archive.WriteDouble(CostFactor);
+
+            archive.WriteInt(MachiningOperations.Count);
+            foreach (var op in MachiningOperations)
+            {
+                op.Write(archive);
+            }
+        }
+
+        /// <summary>
+        /// Reads the edge configuration data from a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to read from.</param>
+        public void Read(Rhino.FileIO.BinaryArchiveReader archive)
+        {
+            archive.Read3dmChunkVersion(out _, out _);
+            Id = archive.ReadGuid();
+            KantenTyp = (EdgeType)archive.ReadInt();
+            BearbeitungsTyp = (EdgeProcessingType)archive.ReadInt();
+            EdgeMaterial = archive.ReadString();
+            EdgeBandThickness = archive.ReadDouble();
+            EdgeBandWidth = archive.ReadDouble();
+            EdgeColor = archive.ReadColor();
+            IsVisible = archive.ReadBool();
+            ProcessingPriority = archive.ReadInt();
+            RoundingRadius = archive.ReadDouble();
+            ChamferSize = archive.ReadDouble();
+            Notes = archive.ReadString();
+            CostFactor = archive.ReadDouble();
+
+            int opCount = archive.ReadInt();
+            MachiningOperations.Clear();
+            for (int i = 0; i < opCount; i++)
+            {
+                var op = new EdgeMachiningOperation();
+                op.Read(archive);
+                MachiningOperations.Add(op);
+            }
         }
     }
 
@@ -403,27 +464,27 @@ namespace BauteilPlugin.Models
     public class EdgeMachiningOperation
     {
         /// <summary>
-        /// Unique identifier for the operation
+        /// Unique identifier for the machining operation
         /// </summary>
         public Guid Id { get; set; } = Guid.NewGuid();
 
         /// <summary>
-        /// Name of the operation
+        /// Name of the operation (e.g., "Drilling_5mm")
         /// </summary>
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// Type of operation
+        /// Type of operation (e.g., "Drill", "Groove", "Pocket")
         /// </summary>
         public string OperationType { get; set; } = string.Empty;
 
         /// <summary>
-        /// Parameters for the operation
+        /// Parameters for the operation (e.g., {"depth": 10, "diameter": 5})
         /// </summary>
         public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
 
         /// <summary>
-        /// Order of execution
+        /// Order of execution for this operation
         /// </summary>
         public int ExecutionOrder { get; set; } = 1;
 
@@ -436,10 +497,10 @@ namespace BauteilPlugin.Models
             var errors = new List<string>();
 
             if (string.IsNullOrWhiteSpace(Name))
-                errors.Add("Operation name is required");
+                errors.Add("Machining operation name is required");
 
             if (string.IsNullOrWhiteSpace(OperationType))
-                errors.Add("Operation type is required");
+                errors.Add("Machining operation type is required");
 
             return errors;
         }
@@ -447,17 +508,67 @@ namespace BauteilPlugin.Models
         /// <summary>
         /// Create a deep copy of the machining operation
         /// </summary>
-        /// <returns>Deep copy of the machining operation</returns>
+        /// <returns>A deep copy of the operation</returns>
         public EdgeMachiningOperation Clone()
         {
-            return new EdgeMachiningOperation
+            var aClone = new EdgeMachiningOperation
             {
                 Id = Guid.NewGuid(),
-                Name = Name,
-                OperationType = OperationType,
-                Parameters = new Dictionary<string, object>(Parameters),
-                ExecutionOrder = ExecutionOrder
+                Name = this.Name,
+                OperationType = this.OperationType,
+                ExecutionOrder = this.ExecutionOrder
             };
+            // Note: Deep copy of parameters dictionary is tricky.
+            // This is a shallow copy for now.
+            foreach (var kvp in this.Parameters)
+            {
+                aClone.Parameters.Add(kvp.Key, kvp.Value);
+            }
+            return aClone;
+        }
+
+        /// <summary>
+        /// Writes the machining operation data to a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to write to.</param>
+        public void Write(Rhino.FileIO.BinaryArchiveWriter archive)
+        {
+            archive.Write3dmChunkVersion(1, 0);
+            archive.WriteGuid(Id);
+            archive.WriteString(Name);
+            archive.WriteString(OperationType);
+            archive.WriteInt(ExecutionOrder);
+
+            // Serialization of Dictionary<string, object> is complex.
+            // For now, we write the count and key-value pairs as strings.
+            archive.WriteInt(Parameters.Count);
+            foreach (var kvp in Parameters)
+            {
+                archive.WriteString(kvp.Key);
+                archive.WriteString(kvp.Value?.ToString() ?? string.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Reads the machining operation data from a binary archive.
+        /// </summary>
+        /// <param name="archive">The archive to read from.</param>
+        public void Read(Rhino.FileIO.BinaryArchiveReader archive)
+        {
+            archive.Read3dmChunkVersion(out _, out _);
+            Id = archive.ReadGuid();
+            Name = archive.ReadString();
+            OperationType = archive.ReadString();
+            ExecutionOrder = archive.ReadInt();
+
+            int paramCount = archive.ReadInt();
+            Parameters.Clear();
+            for (int i = 0; i < paramCount; i++)
+            {
+                string key = archive.ReadString();
+                string value = archive.ReadString();
+                Parameters[key] = value; // All values are read as strings.
+            }
         }
     }
 } 

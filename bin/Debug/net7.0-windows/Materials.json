@@ -1,0 +1,221 @@
+{
+  "materials": [
+    {
+      "name": "Birke Multiplex",
+      "type": "Plywood",
+      "density": 700,
+      "thickness": 18,
+      "keywords": ["birke", "multiplex", "sperrholz", "hell", "stabil"]
+    },
+    {
+      "name": "Buche Massiv",
+      "type": "Wood",
+      "density": 720,
+      "thickness": 20,
+      "keywords": ["buche", "massiv", "hartholz", "hell", "robust"]
+    },
+    {
+      "name": "Eiche Massiv",
+      "type": "Wood",
+      "density": 680,
+      "thickness": 20,
+      "keywords": ["eiche", "massiv", "hartholz", "dunkel", "premium"]
+    },
+    {
+      "name": "Fichte Leimholz",
+      "type": "Wood",
+      "density": 450,
+      "thickness": 18,
+      "keywords": ["fichte", "leimholz", "nadelholz", "hell", "günstig"]
+    },
+    {
+      "name": "Kiefer Massiv",
+      "type": "Wood",
+      "density": 520,
+      "thickness": 18,
+      "keywords": ["kiefer", "massiv", "nadelholz", "hell", "weich"]
+    },
+    {
+      "name": "Spanplatte roh",
+      "type": "Chipboard",
+      "density": 650,
+      "thickness": 16,
+      "keywords": ["spanplatte", "roh", "chipboard", "günstig", "basis"]
+    },
+    {
+      "name": "Spanplatte melaminbeschichtet weiß",
+      "type": "Chipboard",
+      "density": 650,
+      "thickness": 16,
+      "keywords": ["spanplatte", "melamin", "weiß", "beschichtet", "standard"]
+    },
+    {
+      "name": "Spanplatte melaminbeschichtet grau",
+      "type": "Chipboard",
+      "density": 650,
+      "thickness": 16,
+      "keywords": ["spanplatte", "melamin", "grau", "beschichtet", "modern"]
+    },
+    {
+      "name": "Spanplatte melaminbeschichtet schwarz",
+      "type": "Chipboard",
+      "density": 650,
+      "thickness": 16,
+      "keywords": ["spanplatte", "melamin", "schwarz", "beschichtet", "elegant"]
+    },
+    {
+      "name": "MDF roh",
+      "type": "MDF",
+      "density": 750,
+      "thickness": 16,
+      "keywords": ["mdf", "roh", "mitteldichte", "faserplatte", "glatt"]
+    },
+    {
+      "name": "MDF lackiert weiß",
+      "type": "MDF",
+      "density": 750,
+      "thickness": 16,
+      "keywords": ["mdf", "lackiert", "weiß", "glatt", "premium"]
+    },
+    {
+      "name": "MDF lackiert schwarz",
+      "type": "MDF",
+      "density": 750,
+      "thickness": 16,
+      "keywords": ["mdf", "lackiert", "schwarz", "glatt", "elegant"]
+    },
+    {
+      "name": "OSB Platte",
+      "type": "Chipboard",
+      "density": 600,
+      "thickness": 18,
+      "keywords": ["osb", "oriented", "strand", "board", "günstig"]
+    },
+    {
+      "name": "Aluminium 1mm",
+      "type": "Metal",
+      "density": 2700,
+      "thickness": 1,
+      "keywords": ["aluminium", "metall", "leicht", "korrosionsbeständig"]
+    },
+    {
+      "name": "Aluminium 2mm",
+      "type": "Metal",
+      "density": 2700,
+      "thickness": 2,
+      "keywords": ["aluminium", "metall", "leicht", "korrosionsbeständig"]
+    },
+    {
+      "name": "Stahl verzinkt 1mm",
+      "type": "Metal",
+      "density": 7850,
+      "thickness": 1,
+      "keywords": ["stahl", "verzinkt", "metall", "stark", "korrosionsschutz"]
+    },
+    {
+      "name": "Stahl verzinkt 2mm",
+      "type": "Metal",
+      "density": 7850,
+      "thickness": 2,
+      "keywords": ["stahl", "verzinkt", "metall", "stark", "korrosionsschutz"]
+    },
+    {
+      "name": "Edelstahl 1mm",
+      "type": "Metal",
+      "density": 7900,
+      "thickness": 1,
+      "keywords": ["edelstahl", "metall", "rostfrei", "hygienisch", "premium"]
+    },
+    {
+      "name": "Edelstahl 2mm",
+      "type": "Metal",
+      "density": 7900,
+      "thickness": 2,
+      "keywords": ["edelstahl", "metall", "rostfrei", "hygienisch", "premium"]
+    },
+    {
+      "name": "Acrylglas 3mm",
+      "type": "Plastic",
+      "density": 1190,
+      "thickness": 3,
+      "keywords": ["acrylglas", "plexiglas", "transparent", "kunststoff"]
+    },
+    {
+      "name": "Acrylglas 6mm",
+      "type": "Plastic",
+      "density": 1190,
+      "thickness": 6,
+      "keywords": ["acrylglas", "plexiglas", "transparent", "kunststoff"]
+    },
+    {
+      "name": "Polycarbonat 4mm",
+      "type": "Plastic",
+      "density": 1200,
+      "thickness": 4,
+      "keywords": ["polycarbonat", "kunststoff", "schlagzäh", "transparent"]
+    },
+    {
+      "name": "Polycarbonat 6mm",
+      "type": "Plastic",
+      "density": 1200,
+      "thickness": 6,
+      "keywords": ["polycarbonat", "kunststoff", "schlagzäh", "transparent"]
+    },
+    {
+      "name": "Sicherheitsglas 4mm",
+      "type": "Glass",
+      "density": 2500,
+      "thickness": 4,
+      "keywords": ["sicherheitsglas", "glas", "transparent", "sicherheit"]
+    },
+    {
+      "name": "Sicherheitsglas 6mm",
+      "type": "Glass",
+      "density": 2500,
+      "thickness": 6,
+      "keywords": ["sicherheitsglas", "glas", "transparent", "sicherheit"]
+    },
+    {
+      "name": "Sicherheitsglas 8mm",
+      "type": "Glass",
+      "density": 2500,
+      "thickness": 8,
+      "keywords": ["sicherheitsglas", "glas", "transparent", "sicherheit"]
+    },
+    {
+      "name": "Verbundwerkstoff Carbon",
+      "type": "Composite",
+      "density": 1600,
+      "thickness": 2,
+      "keywords": ["carbon", "verbundwerkstoff", "leicht", "stabil", "hightech"]
+    },
+    {
+      "name": "Verbundwerkstoff Glasfaser",
+      "type": "Composite",
+      "density": 1800,
+      "thickness": 3,
+      "keywords": ["glasfaser", "verbundwerkstoff", "stabil", "chemikalienfest"]
+    },
+    {
+      "name": "Bambus Platte",
+      "type": "Wood",
+      "density": 650,
+      "thickness": 15,
+      "keywords": ["bambus", "nachhaltig", "hell", "stabil", "ökologisch"]
+    },
+    {
+      "name": "Kork Platte",
+      "type": "Other",
+      "density": 240,
+      "thickness": 10,
+      "keywords": ["kork", "dämm", "leicht", "nachhaltig", "isolierung"]
+    },
+    {
+      "name": "Linoleum",
+      "type": "Other",
+      "density": 1400,
+      "thickness": 2,
+      "keywords": ["linoleum", "natürlich", "antibakteriell", "bodenbelag"]
+    }
+  ]
+} 
